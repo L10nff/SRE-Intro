@@ -11,9 +11,10 @@ env:
 
 jobs:
   build:
+    if: ${{ !startsWith(github.event.head_commit.message, 'ci:') }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -46,3 +47,41 @@ jobs:
               --push \
               "./app/${service}"
           done
+
+      - name: Update Kubernetes image tags
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for service in gateway events payments; do
+            image="${REGISTRY}/${IMAGE_OWNER}/quickticket-${service}:${GITHUB_SHA}"
+
+            if [ "$(grep -Ec "image: ${REGISTRY}/${IMAGE_OWNER}/quickticket-${service}:" "k8s/${service}.yaml")" -ne 1 ]; then
+              echo "Expected exactly one image reference for ${service}" >&2
+              exit 1
+            fi
+
+            sed -E -i \
+              "s#image: ${REGISTRY}/${IMAGE_OWNER}/quickticket-${service}:[^[:space:]]+#image: ${image}#" \
+              "k8s/${service}.yaml"
+          done
+
+          if git diff --quiet -- \
+            k8s/gateway.yaml \
+            k8s/events.yaml \
+            k8s/payments.yaml
+          then
+            echo "Kubernetes image tags are already current"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- \
+            k8s/gateway.yaml \
+            k8s/events.yaml \
+            k8s/payments.yaml
+
+          git commit -m "ci: update image tags to ${GITHUB_SHA}"
+          git push origin HEAD:main
