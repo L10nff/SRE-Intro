@@ -19,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: gateway
-          image: ghcr.io/l10nff/quickticket-gateway:341ad1125433baf905650c9a61c39ad4f6920cda
+          image: ghcr.io/l10nff/quickticket-gateway:8149b864f12fd96abeecb9c922d786ae08c898b4
           imagePullPolicy: Always
           resources:
             requests:
